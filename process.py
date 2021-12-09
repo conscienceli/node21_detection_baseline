@@ -121,7 +121,7 @@ class Noduledetection(DetectionAlgorithm):
         lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
                                                        step_size=3,
                                                        gamma=0.1)        
-        for epoch in range(num_epochs):
+        for epoch in range(10):
             train_one_epoch(self.model, optimizer, data_loader, self.device, epoch, print_freq=10)
             # update the learning rate
             lr_scheduler.step()
