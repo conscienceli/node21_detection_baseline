@@ -4,7 +4,8 @@ import numpy as np
 from pandas import DataFrame
 from scipy.ndimage import center_of_mass, label
 import torchvision
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+import training_utils
+from training_utils.faster_rcnn import FastRCNNPredictor
 import torch
 from evalutils import DetectionAlgorithm
 from evalutils.validators import (
@@ -43,7 +44,7 @@ class Noduledetection(DetectionAlgorithm):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.input_path, self.output_path = input_dir, output_dir
         print('using the device ', self.device)
-        self.model = torchvision.models.detection.fasterrcnn_resnet50_fpn(pretrained=False, pretrained_backbone=False)
+        self.model = training_utils.faster_rcnn.fasterrcnn_resnet50_fpn(pretrained=False, pretrained_backbone=False)
         num_classes = 2  # 1 class (nodule) + background
         in_features = self.model.roi_heads.box_predictor.cls_score.in_features
         self.model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
