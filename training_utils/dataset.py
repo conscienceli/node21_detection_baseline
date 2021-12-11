@@ -45,6 +45,7 @@ class CXRNoduleDataset(object):
             boxes = torch.as_tensor(boxes, dtype=torch.float32)
             area = (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0])
             labels = torch.ones((num_objs,), dtype=torch.int64)
+            # label_cls = torch.tensor([1.])
             iscrowd = torch.zeros((num_objs,), dtype=torch.int64)
         
         # for non-nodule images
@@ -52,6 +53,7 @@ class CXRNoduleDataset(object):
             boxes = torch.empty([0,4])
             area = torch.tensor([0])
             labels = torch.zeros(0, dtype=torch.int64)
+            # label_cls = torch.tensor([0.])
             iscrowd = torch.zeros((0,), dtype=torch.int64)
 
             
@@ -60,6 +62,7 @@ class CXRNoduleDataset(object):
         target = {}
         target["boxes"] = boxes
         target["labels"] = labels
+        # target["label_cls"] = label_cls
         target["image_id"] = image_id
         target["area"] = area
         target["iscrowd"] = iscrowd

@@ -40,6 +40,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
 
         optimizer.zero_grad()
         losses.backward()
+        # clip_gradient(optimizer, .1)
         optimizer.step()
 
         if lr_scheduler is not None:
@@ -47,3 +48,15 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq):
 
         metric_logger.update(loss=losses_reduced, **loss_dict_reduced)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+
+
+def clip_gradient(optimizer, grad_clip):
+    """
+    Clips gradients computed during backpropagation to avoid explosion of gradients.
+    :param optimizer: optimizer with the gradients to be clipped
+    :param grad_clip: clip value
+    """
+    for group in optimizer.param_groups:
+        for param in group["params"]:
+            if param.grad is not None:
+                param.grad.data.clamp_(-grad_clip, grad_clip)

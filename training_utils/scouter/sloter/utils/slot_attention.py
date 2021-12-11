@@ -18,7 +18,7 @@ class SlotAttention(nn.Module):
         self.loss_status = loss_status
 
         slots_mu = nn.Parameter(torch.randn(1, 1, dim))
-        slots_sigma = nn.Parameter(torch.randn(1, 1, dim))
+        slots_sigma = nn.Parameter(abs(torch.randn(1, 1, dim)))
 
         mu = slots_mu.expand(1, self.num_slots, -1)
         sigma = slots_sigma.expand(1, self.num_slots, -1)
@@ -59,8 +59,8 @@ class SlotAttention(nn.Module):
             updates = updates / inputs_x.size(2)
             self.gru.flatten_parameters()
             slots, _ = self.gru(
-                updates.reshape(1, -1, d),
-                slots_prev.reshape(1, -1, d)
+                updates.reshape(1, -1, d).contiguous(),
+                slots_prev.reshape(1, -1, d).contiguous()
             )
 
             slots = slots.reshape(b, -1, d)

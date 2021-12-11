@@ -7,6 +7,7 @@ import torch
 from torch import nn, Tensor
 import warnings
 from typing import Tuple, List, Dict, Optional, Union
+# from .scouter.sloter.slot_model import SlotModel
 
 
 class GeneralizedRCNN(nn.Module):
@@ -30,6 +31,8 @@ class GeneralizedRCNN(nn.Module):
         self.roi_heads = roi_heads
         # used only on torchscript mode
         self._has_warned = False
+
+        # self.scouter = SlotModel()
 
     @torch.jit.unused
     def eager_outputs(self, losses, detections):
@@ -78,6 +81,7 @@ class GeneralizedRCNN(nn.Module):
 
         # Check for degenerate boxes
         # TODO: Move this to a function
+        # targets_cls = []
         if targets is not None:
             for target_idx, target in enumerate(targets):
                 boxes = target["boxes"]
@@ -89,10 +93,13 @@ class GeneralizedRCNN(nn.Module):
                     raise ValueError("All bounding boxes should have positive height and width."
                                      " Found invalid box {} for target at index {}."
                                      .format(degen_bb, target_idx))
+                # targets_cls.append(target["label_cls"])
+        # targets_cls = torch.tensor(targets_cls).to(images.tensors.device)
 
         features = self.backbone(images.tensors)
         if isinstance(features, torch.Tensor):
             features = OrderedDict([('0', features)])
+        # cls_output, scouter_loss = self.scouter(features['0'], targets_cls)
         proposals, proposal_losses = self.rpn(images, features, targets)
         detections, detector_losses = self.roi_heads(features, proposals, images.image_sizes, targets)
         detections = self.transform.postprocess(detections, images.image_sizes, original_image_sizes)
@@ -100,6 +107,7 @@ class GeneralizedRCNN(nn.Module):
         losses = {}
         losses.update(detector_losses)
         losses.update(proposal_losses)
+        # losses.update({"scouter_loss":0.1*scouter_loss})
 
         if torch.jit.is_scripting():
             if not self._has_warned:

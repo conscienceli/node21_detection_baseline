@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from sloter.utils.slot_attention import SlotAttention
-from sloter.utils.position_encode import build_position_encoding
-from timm.models import create_model
+from .utils.slot_attention import SlotAttention
+from .utils.position_encode import build_position_encoding
+# from timm.models import create_model
 from collections import OrderedDict
 
 
@@ -53,28 +53,21 @@ def load_backbone(args):
 
 
 class SlotModel(nn.Module):
-    def __init__(self, args):
+    def __init__(self):
         super(SlotModel, self).__init__()
-        self.use_slot = args.use_slot
-        self.backbone = load_backbone(args)
-        if self.use_slot:
-            if 'densenet' in args.model:
-                self.feature_size = 8
-            else:
-                self.feature_size = 9
 
-            self.channel = args.channel
-            self.slots_per_class = args.slots_per_class
-            self.conv1x1 = nn.Conv2d(self.channel, args.hidden_dim, kernel_size=(1, 1), stride=(1, 1))
-            if args.pre_trained:
-                self.dfs_freeze(self.backbone, args.freeze_layers)
-            self.slot = SlotAttention(args.num_classes, self.slots_per_class, args.hidden_dim, vis=args.vis,
-                                         vis_id=args.vis_id, loss_status=args.loss_status, power=args.power, to_k_layer=args.to_k_layer)
-            self.position_emb = build_position_encoding('sine', hidden_dim=args.hidden_dim)
-            self.lambda_value = float(args.lambda_value)
-        else:
-            if args.pre_trained:
-                self.dfs_freeze(self.backbone, args.freeze_layers)
+        self.feature_size = 100
+
+        self.channel = 1024
+        self.slots_per_class = 1
+        self.hidden_dim = 64
+        self.num_classes = 2
+        self.conv1x1 = nn.Conv2d(self.channel, self.hidden_dim, kernel_size=(1, 1), stride=(1, 1))
+        self.slot = SlotAttention(self.num_classes, self.slots_per_class, self.hidden_dim, vis=False,
+                                        vis_id=0, loss_status=1, power=2., to_k_layer=3)
+        self.position_emb = build_position_encoding('sine', hidden_dim=self.hidden_dim)
+        self.lambda_value = 0.01
+        
 
     def dfs_freeze(self, model, freeze_layer_num):
         if freeze_layer_num == 0:
@@ -102,26 +95,25 @@ class SlotModel(nn.Module):
                 param.requires_grad = False
             self.dfs_freeze_bnorm(child)
 
-    def forward(self, x, target=None):
-        x = self.backbone(x)
-        if self.use_slot:
-            x = self.conv1x1(x.view(x.size(0), self.channel, self.feature_size, self.feature_size))
-            x = torch.relu(x)
-            pe = self.position_emb(x)
-            x_pe = x + pe
+    def forward(self, x, target):
+        x = self.conv1x1(x.view(x.size(0), self.channel, self.feature_size, self.feature_size))
+        x = torch.relu(x)
+        pe = self.position_emb(x)
+        x_pe = x + pe
 
-            b, n, r, c = x.shape
-            x = x.reshape((b, n, -1)).permute((0, 2, 1))
-            x_pe = x_pe.reshape((b, n, -1)).permute((0, 2, 1))
-            x, attn_loss = self.slot(x_pe, x)
+        b, n, r, c = x.shape
+        x = x.reshape((b, n, -1)).permute((0, 2, 1))
+        x_pe = x_pe.reshape((b, n, -1)).permute((0, 2, 1))
+        x, attn_loss = self.slot(x_pe, x)
+
+        # output = F.sigmoid(x)[:,0]
         output = F.log_softmax(x, dim=1)
 
         if target is not None:
-            if self.use_slot:
-                loss = F.nll_loss(output, target) + self.lambda_value * attn_loss
-                return [output, [loss, F.nll_loss(output, target), attn_loss]]
-            else:
-                loss = F.nll_loss(output, target)
-                return [output, [loss]]
+            # print(output, target)
+            loss = F.nll_loss(output, target.long()) + self.lambda_value * attn_loss
+            # loss = F.binary_cross_entropy(output, target) + self.lambda_value * attn_loss
+            return output, loss
+        else:
+            return output, 0
 
-        return output
